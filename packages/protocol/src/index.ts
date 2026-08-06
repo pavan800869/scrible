@@ -5,3 +5,4 @@ export * from './text.js';
 export * from './guess.js';
 export * from './score.js';
 export * from './hints.js';
+export * from './redact.js';

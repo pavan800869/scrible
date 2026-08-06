@@ -11,6 +11,7 @@ import {
 import { pickWords } from '@scrible/words';
 import { StrokeRelay } from '../net/strokes.js';
 import type { RoomStore } from './store.js';
+import type { VoiceService } from '../voice/tokens.js';
 
 export interface Transport {
   send(playerId: PlayerId, message: ServerMessage): void;
@@ -25,6 +26,7 @@ export class RoomRuntime {
     readonly id: RoomId,
     private readonly store: RoomStore,
     private readonly transport: Transport,
+    private readonly voice?: VoiceService,
   ) {}
 
   dispatch(event: GameEvent, now: number): void {
@@ -86,7 +88,8 @@ export class RoomRuntime {
           break;
 
         case 'REVOKE_VOICE':
-          // Implemented in the voice plan; a no-op until LiveKit is wired.
+          // Eject from audio too — a removed player must not linger on the call.
+          void this.voice?.revoke({ roomId: this.id, playerId: effect.playerId });
           break;
       }
     }

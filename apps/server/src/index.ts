@@ -21,6 +21,7 @@ import {
   type Limits,
 } from './net/connection.js';
 import { mintRejoinToken, verifyRejoinToken } from './net/rejoin.js';
+import { createVoiceService, type VoiceService } from './voice/tokens.js';
 
 const TICK_MS = 250;
 const EMPTY_ROOM_GRACE_MS = 120_000;
@@ -38,15 +39,23 @@ export class GameServer {
    * because the in-memory rooms they point at do not either.
    */
   readonly #secret = process.env['REJOIN_SECRET'] ?? randomUUID();
+  readonly #voice: VoiceService;
 
-  constructor(private readonly port: number) {}
+  constructor(
+    private readonly port: number,
+    voice: VoiceService = createVoiceService(),
+  ) {
+    this.#voice = voice;
+  }
 
   async start(): Promise<string> {
-    const app = buildApp({ store: this.#store });
+    const app = buildApp({ store: this.#store, secret: this.#secret, voice: this.#voice });
     this.#app = app;
 
     // Fastify owns the HTTP server; we only borrow its upgrade event for ws.
-    await app.listen({ port: this.port, host: '127.0.0.1' });
+    // Bind all interfaces: inside a container, 127.0.0.1 is unreachable from
+    // the host and the deploy would come up dead.
+    await app.listen({ port: this.port, host: process.env['HOST'] ?? '0.0.0.0' });
 
     app.server.on('upgrade', (req, socket, head) => {
       this.#wss.handleUpgrade(req, socket, head, (ws) => {
@@ -89,7 +98,7 @@ export class GameServer {
     if (this.#store.get(roomId) === undefined) return undefined;
     let runtime = this.#runtimes.get(roomId);
     if (runtime === undefined) {
-      runtime = new RoomRuntime(roomId, this.#store, this.#transport());
+      runtime = new RoomRuntime(roomId, this.#store, this.#transport(), this.#voice);
       this.#runtimes.set(roomId, runtime);
     }
     return runtime;

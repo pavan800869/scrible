@@ -308,6 +308,15 @@ function toEvent(message: ClientMessage, playerId: PlayerId): GameEvent | null {
 }
 
 if (process.env['NODE_ENV'] !== 'test') {
-  const server = new GameServer(Number(process.env['PORT'] ?? 3000));
-  void server.start().then((url) => console.log(`scrible server listening on ${url}`));
+  const voice = createVoiceService();
+  const server = new GameServer(Number(process.env['PORT'] ?? 3000), voice);
+
+  void server.start().then((url) => {
+    console.log(`scrible listening on ${url}`);
+    console.log(
+      voice.configured
+        ? `voice: on, via ${voice.url}`
+        : 'voice: off — set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env to enable it',
+    );
+  });
 }

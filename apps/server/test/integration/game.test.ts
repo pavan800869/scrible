@@ -139,6 +139,40 @@ describe('a full two-player game', () => {
     bo.close();
   }, 20_000);
 
+  it('reclaims a seat and its score with a rejoin token', async () => {
+    const roomId = await createRoom();
+
+    const ada = await Client.connect(baseUrl);
+    const bo = await Client.connect(baseUrl);
+    ada.send({ type: 'join', roomId, name: 'Ada', avatarSeed: 'a' });
+    bo.send({ type: 'join', roomId, name: 'Bo', avatarSeed: 'b' });
+
+    const welcome = await ada.waitFor(
+      (m): m is Extract<ServerMessage, { type: 'welcome' }> => m.type === 'welcome',
+    );
+    expect(welcome.rejoinToken).not.toBe('');
+
+    await bo.waitFor((m): m is StateMessage => isState(m) && m.view.players.length === 2);
+    ada.close();
+
+    // Reconnect with the token and confirm the original seat comes back.
+    const back = await Client.connect(baseUrl);
+    back.send({
+      type: 'join', roomId, name: 'Ada', avatarSeed: 'a', rejoinToken: welcome.rejoinToken,
+    });
+
+    const rejoined = await back.waitFor(
+      (m): m is Extract<ServerMessage, { type: 'welcome' }> => m.type === 'welcome',
+    );
+
+    expect(rejoined.playerId).toBe(welcome.playerId);
+    expect(rejoined.view.players).toHaveLength(2);
+    expect(rejoined.view.players.find((p) => p.id === welcome.playerId)?.connected).toBe(true);
+
+    back.close();
+    bo.close();
+  }, 20_000);
+
   it('rejects a join to a room that does not exist', async () => {
     const client = await Client.connect(baseUrl);
     client.send({ type: 'join', roomId: 'zzzzzz', name: 'Ghost', avatarSeed: 'g' });

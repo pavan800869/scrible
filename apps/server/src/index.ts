@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import type { FastifyInstance } from 'fastify';
 import {
@@ -19,6 +20,7 @@ import {
   type Connection,
   type Limits,
 } from './net/connection.js';
+import { mintRejoinToken, verifyRejoinToken } from './net/rejoin.js';
 
 const TICK_MS = 250;
 const EMPTY_ROOM_GRACE_MS = 120_000;
@@ -31,6 +33,11 @@ export class GameServer {
   #wss = new WebSocketServer({ noServer: true });
   #app: FastifyInstance | null = null;
   #timer: NodeJS.Timeout | null = null;
+  /**
+   * Per-process fallback is correct: tokens should not outlive a restart,
+   * because the in-memory rooms they point at do not either.
+   */
+  readonly #secret = process.env['REJOIN_SECRET'] ?? randomUUID();
 
   constructor(private readonly port: number) {}
 
@@ -150,6 +157,29 @@ export class GameServer {
       return;
     }
 
+    const claim =
+      message.rejoinToken !== undefined
+        ? verifyRejoinToken(this.#secret, message.rejoinToken)
+        : null;
+
+    const seat =
+      claim !== null && claim.roomId === message.roomId
+        ? this.#store.get(message.roomId)?.players.find((p) => p.id === claim.playerId)
+        : undefined;
+
+    if (claim !== null && seat !== undefined && !seat.connected) {
+      // Reclaim the existing seat, score and all.
+      this.#connections.delete(connection.playerId);
+      const limits = createLimits();
+      connection.playerId = claim.playerId;
+      connection.roomId = message.roomId;
+      this.#connections.set(connection.playerId, { connection, limits });
+      runtime.dispatch({ type: 'PLAYER_RECONNECTED', playerId: connection.playerId }, Date.now());
+      this.#sendWelcome(connection, message.roomId);
+      for (const frame of runtime.strokes.log()) sendBinary(connection, frame);
+      return;
+    }
+
     connection.roomId = message.roomId;
     runtime.dispatch(
       {
@@ -162,18 +192,23 @@ export class GameServer {
       Date.now(),
     );
 
-    const state = this.#store.get(message.roomId);
-    if (state !== undefined && state.players.some((p) => p.id === connection.playerId)) {
-      send(connection, {
-        type: 'welcome',
-        playerId: connection.playerId,
-        rejoinToken: '',
-        view: redactStateFor(state, connection.playerId),
-      });
-    }
+    this.#sendWelcome(connection, message.roomId);
 
     // Replay the in-progress canvas so a late joiner sees the drawing.
     for (const frame of runtime.strokes.log()) sendBinary(connection, frame);
+  }
+
+  #sendWelcome(connection: Connection, roomId: string): void {
+    const state = this.#store.get(roomId);
+    if (state === undefined) return;
+    if (!state.players.some((p) => p.id === connection.playerId)) return;
+
+    send(connection, {
+      type: 'welcome',
+      playerId: connection.playerId,
+      rejoinToken: mintRejoinToken(this.#secret, roomId, connection.playerId),
+      view: redactStateFor(state, connection.playerId),
+    });
   }
 
   /** Undo and clear touch the stroke log, not the reducer. Drawer only. */

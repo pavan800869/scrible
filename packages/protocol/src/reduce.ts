@@ -364,6 +364,46 @@ export function endTurn(state: RoomState, ctx: ReducerCtx, voided = false): Redu
 }
 
 export const SEAT_HOLD_MS = 60_000;
+export const PAUSE_ABANDON_MS = 120_000;
+
+/** Phases where a lone player is a problem rather than a normal state. */
+function isLive(phase: RoomState['phase']): boolean {
+  return phase.name !== 'lobby' && phase.name !== 'game-end';
+}
+
+function applyPause(state: RoomState, ctx: ReducerCtx): ReduceResult | null {
+  const connected = state.players.filter((p) => p.connected).length;
+
+  if (connected >= 2 || !isLive(state.phase)) {
+    if (state.pausedSince === null) return null;
+    return { state: { ...state, pausedSince: null }, effects: [{ type: 'BROADCAST_STATE' }] };
+  }
+
+  // Newly paused.
+  if (state.pausedSince === null) {
+    return { state: { ...state, pausedSince: ctx.now }, effects: [{ type: 'BROADCAST_STATE' }] };
+  }
+
+  // Paused too long — abandon the game rather than hold the room open.
+  if (ctx.now - state.pausedSince >= PAUSE_ABANDON_MS) {
+    return {
+      state: { ...state, pausedSince: null, phase: { name: 'game-end' } },
+      effects: [{ type: 'BROADCAST_STATE' }],
+    };
+  }
+
+  // Still paused: push every deadline forward so no clock drains while waiting.
+  const shift = ctx.now - state.pausedSince;
+  const phase = state.phase;
+  const shifted: Phase =
+    phase.name === 'drawing'
+      ? { ...phase, endsAt: phase.endsAt + shift, startedAt: phase.startedAt + shift }
+      : 'endsAt' in phase
+        ? { ...phase, endsAt: phase.endsAt + shift }
+        : phase;
+
+  return { state: { ...state, pausedSince: ctx.now, phase: shifted }, effects: [] };
+}
 
 function tick(input: RoomState, ctx: ReducerCtx): ReduceResult {
   const reaped: Effect[] = [];
@@ -381,6 +421,14 @@ function tick(input: RoomState, ctx: ReducerCtx): ReduceResult {
       turnOrder: state.turnOrder.filter((id) => !ids.has(id)),
     };
     reaped.push({ type: 'BROADCAST_STATE' });
+  }
+
+  const paused = applyPause(state, ctx);
+  if (paused !== null) {
+    state = paused.state;
+    reaped.push(...paused.effects);
+    // A paused game must not advance phases.
+    if (state.pausedSince !== null) return { state, effects: reaped };
   }
 
   const result = tickPhase(state, ctx);

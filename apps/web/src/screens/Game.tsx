@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClientRoomView } from '@scrible/protocol';
 import { DrawingCanvas } from '../canvas/DrawingCanvas.js';
 import type { CanvasEngine } from '../canvas/engine.js';
+import { Character } from '../components/Character.js';
 import { Chat } from '../components/Chat.js';
+import { Confetti } from '../components/Confetti.js';
 import { Roster } from '../components/Roster.js';
 import { Timer } from '../components/Timer.js';
 import { Toolbar, type Tool } from '../components/Toolbar.js';
@@ -42,6 +44,14 @@ export function Game(props: GameProps) {
   const hasGuessed = (phase.correctPlayerIds ?? []).includes(selfId ?? '');
   const canDraw = isDrawer && isDrawing;
 
+  // Confetti fires on the edge where you go from guessing to having it.
+  const [burst, setBurst] = useState(0);
+  const wasCorrect = useRef(false);
+  useEffect(() => {
+    if (hasGuessed && !wasCorrect.current) setBurst((n) => n + 1);
+    wasCorrect.current = hasGuessed;
+  }, [hasGuessed]);
+
   // Tool shortcuts. Suppressed while the guess box has focus, so typing "clear"
   // never wipes the canvas.
   useEffect(() => {
@@ -75,8 +85,12 @@ export function Game(props: GameProps) {
 
   const drawerName = view.players.find((p) => p.id === phase.drawerId)?.name ?? 'Someone';
 
+  const drawerSeed = view.players.find((p) => p.id === phase.drawerId)?.avatarSeed ?? '';
+
   return (
     <div className="shell">
+      <Confetti trigger={burst} />
+
       <header className="topbar">
         <div className="topbar-left">
           {phase.endsAt !== undefined && (
@@ -122,6 +136,7 @@ export function Game(props: GameProps) {
 
               {phase.name === 'word-select' && !isDrawer && (
                 <div className="paper-veil">
+                  <Character seed={drawerSeed} mood="thinking" size={96} />
                   <p className="veil-title">{drawerName} is picking a word</p>
                   <p className="setting-hint">Get your typing fingers ready.</p>
                 </div>
@@ -129,6 +144,11 @@ export function Game(props: GameProps) {
 
               {phase.name === 'turn-end' && (
                 <div className="paper-veil">
+                  <Character
+                    seed={drawerSeed}
+                    mood={(phase.correctPlayerIds ?? []).length > 0 ? 'happy' : 'sad'}
+                    size={96}
+                  />
                   <p className="veil-title">The word was</p>
                   <p className="veil-word">{phase.word}</p>
                 </div>
@@ -168,6 +188,7 @@ export function Game(props: GameProps) {
                 : 'Type your guess'
           }
           onSend={props.onChat}
+          nameOf={(id) => view.players.find((p) => p.id === id)?.name ?? 'Someone'}
         />
       </div>
     </div>

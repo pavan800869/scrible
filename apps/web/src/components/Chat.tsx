@@ -6,6 +6,8 @@ interface ChatProps {
   disabled: boolean;
   placeholder: string;
   onSend: (text: string) => void;
+  /** Chat carries player ids on the wire; the roster is what knows their names. */
+  nameOf: (playerId: string) => string;
 }
 
 const CLASS_BY_KIND: Record<ChatEntry['kind'], string> = {
@@ -16,7 +18,7 @@ const CLASS_BY_KIND: Record<ChatEntry['kind'], string> = {
   warning: 'chat-warning',
 };
 
-export function Chat({ entries, disabled, placeholder, onSend }: ChatProps) {
+export function Chat({ entries, disabled, placeholder, onSend, nameOf }: ChatProps) {
   const [draft, setDraft] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,7 @@ export function Chat({ entries, disabled, placeholder, onSend }: ChatProps) {
 
           return (
             <div className={classes.filter(Boolean).join(' ')} key={entry.id}>
-              {entry.from !== null && <b>{entry.from}: </b>}
+              {entry.from !== null && <b>{nameOf(entry.from)}: </b>}
               {entry.text}
             </div>
           );

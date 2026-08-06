@@ -1,5 +1,7 @@
 import type { ClientRoomView } from '@scrible/protocol';
-import { Avatar } from './Avatar.js';
+import { Character } from './Character.js';
+import { moodFor } from '../characters/mood.js';
+import { creatureFrom } from '../characters/traits.js';
 
 interface RosterProps {
   view: ClientRoomView;
@@ -14,6 +16,7 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
   const correct = new Set(view.phase.correctPlayerIds ?? []);
   const deltas = view.phase.deltas;
   const isHost = view.hostId === selfId;
+  const leader = ranked[0];
 
   return (
     <div className="roster panel">
@@ -22,21 +25,32 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
         <span className="eyebrow">{view.players.length}</span>
       </div>
 
-      {ranked.map((player) => {
+      {ranked.map((player, index) => {
         const classes = ['player'];
         if (correct.has(player.id)) classes.push('is-guessed');
         if (player.id === drawerId) classes.push('is-drawing');
         if (!player.connected) classes.push('is-gone');
 
         const delta = deltas?.[player.id];
+        const creature = creatureFrom(player.avatarSeed);
+        const isLeader = index === 0 && player.score > 0 && leader !== undefined;
 
         return (
           <div className={classes.join(' ')} key={player.id}>
-            <Avatar
-              name={player.name}
-              seed={player.avatarSeed}
-              speaking={speaking.has(player.id)}
-            />
+            <div className="player-face">
+              <Character
+                seed={player.avatarSeed}
+                mood={moodFor(view, player.id)}
+                size={40}
+                speaking={speaking.has(player.id)}
+                away={!player.connected}
+              />
+              {isLeader && (
+                <span className="crown" title="Leading">
+                  ♛
+                </span>
+              )}
+            </div>
 
             <div style={{ minWidth: 0 }}>
               <div className="player-name">
@@ -44,10 +58,11 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
                 {player.id === selfId ? ' (you)' : ''}
               </div>
               <div className="player-meta">
-                {view.hostId === player.id && <span>Host</span>}
-                {player.id === drawerId && <span>Drawing</span>}
-                {correct.has(player.id) && <span>Guessed</span>}
-                {!player.connected && <span>Away</span>}
+                <span className="species">{creature.species}</span>
+                {view.hostId === player.id && <span className="tag tag-host">Host</span>}
+                {player.id === drawerId && <span className="tag tag-draw">Drawing</span>}
+                {correct.has(player.id) && <span className="tag tag-got">Got it</span>}
+                {!player.connected && <span className="tag">Away</span>}
               </div>
             </div>
 
@@ -59,8 +74,7 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
 
             {isHost && player.id !== selfId && onKick !== undefined && (
               <button
-                className="btn-ghost"
-                style={{ padding: '2px 6px', fontSize: 12 }}
+                className="kick"
                 onClick={() => onKick(player.id)}
                 aria-label={`Remove ${player.name}`}
                 title={`Remove ${player.name}`}

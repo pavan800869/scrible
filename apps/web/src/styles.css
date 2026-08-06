@@ -229,10 +229,10 @@ button {
 }
 
 .home-card {
-  width: min(420px, 100%);
-  padding: 34px;
+  width: min(400px, 100%);
+  padding: 26px 28px;
   display: grid;
-  gap: 22px;
+  gap: 14px;
   animation: rise 0.5s var(--spring) both;
 }
 
@@ -1041,7 +1041,271 @@ button {
   color: var(--text-dim);
 }
 
+/* ── creatures ───────────────────────────────────────────────────────────── */
+
+.creature {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.creature svg {
+  overflow: visible;
+}
+
+.creature.is-bobbing svg {
+  animation: bob 2.6s var(--ease) infinite;
+}
+
+.creature.is-celebrating svg {
+  animation: cheer 0.6s var(--spring);
+}
+
+.creature.is-away {
+  filter: grayscale(0.85);
+  opacity: 0.45;
+}
+
+.creature.is-speaking::after {
+  content: '';
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 2.5px solid var(--good);
+  animation: ripple 1.3s var(--ease) infinite;
+}
+
+.player-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.crown {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  font-size: 14px;
+  color: var(--glow);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  animation: pop 0.4s var(--spring) both;
+}
+
+.species {
+  font-weight: 650;
+  color: var(--text-faint);
+}
+
+.tag {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tag-host {
+  background: rgba(167, 139, 250, 0.2);
+  color: #c4b1ff;
+}
+
+.tag-draw {
+  background: var(--glow-soft);
+  color: var(--glow);
+}
+
+.tag-got {
+  background: rgba(123, 216, 143, 0.18);
+  color: var(--good);
+}
+
+.kick {
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--text-faint);
+  font-size: 15px;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.kick:hover {
+  background: rgba(255, 107, 107, 0.16);
+  color: var(--alert);
+}
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* ── home: the creature is the hero ──────────────────────────────────────── */
+
+.home-hero {
+  text-align: center;
+}
+
+.picker-stage {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 4px 0 0;
+}
+
+.creature-stage {
+  display: grid;
+  place-items: center;
+  width: 136px;
+  height: 136px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, var(--surface-3), var(--surface));
+  border: 1px solid var(--line);
+  transition: transform 0.25s var(--spring), border-color 0.25s var(--ease);
+}
+
+.creature-stage:hover {
+  transform: scale(1.04);
+  border-color: var(--glow);
+}
+
+.creature-stage:active {
+  transform: scale(0.97);
+}
+
+.creature-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.species-badge {
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--glow-soft);
+  border: 1px solid rgba(255, 184, 107, 0.35);
+  color: var(--glow);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.btn-reroll {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.field-name {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.field-code {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+}
+
+.btn-big {
+  padding: 13px 24px;
+  font-size: 15.5px;
+  border-radius: var(--r-lg);
+}
+
+.winner-stage {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── sliders: the browser default blue fights everything ─────────────────── */
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--glow);
+  border: 2px solid var(--surface);
+  box-shadow: var(--lift-1);
+  cursor: pointer;
+  transition: transform 0.15s var(--spring);
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--glow);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+
+input[type='range']:disabled {
+  opacity: 0.45;
+}
+
+input[type='range']:disabled::-webkit-slider-thumb {
+  background: var(--text-faint);
+  cursor: not-allowed;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--glow);
+  width: 16px;
+  height: 16px;
+}
+
 /* ── motion ──────────────────────────────────────────────────────────────── */
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-6%) rotate(1deg);
+  }
+}
+
+@keyframes cheer {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  35% {
+    transform: scale(1.22) rotate(-7deg);
+  }
+  70% {
+    transform: scale(1.08) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
 
 @keyframes rise {
   from {

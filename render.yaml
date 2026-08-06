@@ -1,0 +1,42 @@
+# Render blueprint. Alternative to fly.toml — use one or the other, not both.
+#
+# Deploy: https://dashboard.render.com → New → Blueprint → pick this repo.
+# Render reads this file and prompts for the three LiveKit secrets.
+
+services:
+  - type: web
+    name: scrible
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+
+    # Nearest Render region to India. Others: oregon, ohio, virginia, frankfurt.
+    region: singapore
+
+    # Room state lives in process memory, so a second instance would serve a
+    # different set of rooms and players would silently land in the wrong game.
+    # Do not raise this without swapping RoomStore for the Redis implementation.
+    numInstances: 1
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: PORT
+        value: 3000
+
+      - key: NODE_ENV
+        value: production
+
+      # Signs seat-reclaim tokens. Render generates one and keeps it stable
+      # across restarts, which is what you want in production.
+      - key: REJOIN_SECRET
+        generateValue: true
+
+      # sync: false means "ask me in the dashboard, never store it in git".
+      # Leave all three unset and the game runs text-only.
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false

@@ -11,6 +11,9 @@ import type {
 } from './types.js';
 import type { Difficulty } from './score.js';
 import { buildHintSchedule } from './hints.js';
+import { classifyGuess } from './guess.js';
+import { normalize } from './text.js';
+import { drawerScore, guesserScore } from './score.js';
 
 export interface PickWordsFn {
   (input: {
@@ -62,6 +65,10 @@ export function reduce(state: RoomState, event: GameEvent, ctx: ReducerCtx): Red
       return startGame(state, event, ctx);
     case 'WORD_CHOSEN':
       return wordChosen(state, event, ctx);
+    case 'GUESS':
+      return guess(state, event, ctx);
+    case 'TICK':
+      return tick(state, ctx);
     default:
       return { state, effects: [] };
   }
@@ -197,6 +204,227 @@ export function startDrawing(
     state: { ...state, phase, usedWords: [...state.usedWords, word.text] },
     effects: [{ type: 'CLEAR_CANVAS' }, { type: 'BROADCAST_STATE' }],
   };
+}
+
+export const FIRST_GUESS_CLAMP_MS = 30_000;
+
+function guess(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'GUESS' }>,
+  ctx: ReducerCtx,
+): ReduceResult {
+  const phase = state.phase;
+
+  // Outside a live turn, chat is just chat.
+  if (phase.name !== 'drawing') {
+    return {
+      state,
+      effects: [{ type: 'CHAT', scope: 'all', from: event.playerId, text: event.text, kind: 'message' }],
+    };
+  }
+
+  // The drawer may chat, but never in a way that leaks the answer.
+  if (event.playerId === phase.drawerId) {
+    const leaks =
+      classifyGuess(event.text, phase.word.text) !== 'wrong' ||
+      normalize(event.text).includes(normalize(phase.word.text));
+    return {
+      state,
+      effects: leaks
+        ? [
+            {
+              type: 'PRIVATE',
+              playerId: event.playerId,
+              text: 'That gives it away — blocked.',
+              kind: 'warning',
+            },
+          ]
+        : [{ type: 'CHAT', scope: 'all', from: event.playerId, text: event.text, kind: 'message' }],
+    };
+  }
+
+  // Already correct: your chat goes to the guessed-only channel.
+  if (phase.correct.some((c) => c.playerId === event.playerId)) {
+    return {
+      state,
+      effects: [
+        { type: 'CHAT', scope: 'guessed', from: event.playerId, text: event.text, kind: 'message' },
+      ],
+    };
+  }
+
+  const verdict = classifyGuess(event.text, phase.word.text);
+
+  if (verdict === 'wrong') {
+    return {
+      state,
+      effects: [{ type: 'CHAT', scope: 'all', from: event.playerId, text: event.text, kind: 'message' }],
+    };
+  }
+
+  if (verdict === 'close') {
+    return {
+      state,
+      effects: [{ type: 'PRIVATE', playerId: event.playerId, text: event.text, kind: 'close' }],
+    };
+  }
+
+  // Correct.
+  const drawTimeMs = state.settings.drawTimeSec * 1000;
+  const points = guesserScore({
+    timeRemainingMs: phase.endsAt - ctx.now,
+    drawTimeMs,
+    difficulty: phase.word.difficulty,
+  });
+
+  const isFirst = phase.correct.length === 0;
+  const nextPhase: Phase = {
+    ...phase,
+    endsAt: isFirst ? Math.min(phase.endsAt, ctx.now + FIRST_GUESS_CLAMP_MS) : phase.endsAt,
+    correct: [...phase.correct, { playerId: event.playerId, atMs: ctx.now, points }],
+  };
+
+  const withScore: RoomState = {
+    ...state,
+    phase: nextPhase,
+    players: state.players.map((p) =>
+      p.id === event.playerId ? { ...p, score: p.score + points } : p,
+    ),
+  };
+
+  const guesserCount = state.players.filter((p) => p.connected && p.id !== phase.drawerId).length;
+  const effects: Effect[] = [
+    {
+      type: 'CHAT',
+      scope: 'all',
+      from: null,
+      text: `${nameOf(state, event.playerId)} guessed it`,
+      kind: 'correct',
+    },
+    { type: 'BROADCAST_STATE' },
+  ];
+
+  if (nextPhase.correct.length >= guesserCount) {
+    const ended = endTurn(withScore, ctx);
+    return { state: ended.state, effects: [...effects, ...ended.effects] };
+  }
+
+  return { state: withScore, effects };
+}
+
+function nameOf(state: RoomState, playerId: PlayerId): string {
+  return state.players.find((p) => p.id === playerId)?.name ?? 'someone';
+}
+
+/** Close out the current drawing turn, award the drawer, and move to turn-end. */
+export function endTurn(state: RoomState, ctx: ReducerCtx, voided = false): ReduceResult {
+  const phase = state.phase;
+  if (phase.name !== 'drawing') return { state, effects: [] };
+
+  const otherPlayerCount = state.players.filter(
+    (p) => p.connected && p.id !== phase.drawerId,
+  ).length;
+
+  const deltas: Record<PlayerId, number> = {};
+  let players = state.players;
+
+  if (!voided) {
+    for (const entry of phase.correct) deltas[entry.playerId] = entry.points;
+
+    const award = drawerScore({
+      guesserScores: phase.correct.map((c) => c.points),
+      otherPlayerCount,
+    });
+    if (award > 0) {
+      deltas[phase.drawerId] = award;
+      players = players.map((p) =>
+        p.id === phase.drawerId ? { ...p, score: p.score + award } : p,
+      );
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      players,
+      phase: { name: 'turn-end', word: phase.word.text, deltas, endsAt: ctx.now + TURN_END_MS },
+    },
+    effects: [{ type: 'BROADCAST_STATE' }],
+  };
+}
+
+function tick(state: RoomState, ctx: ReducerCtx): ReduceResult {
+  return tickPhase(state, ctx);
+}
+
+function tickPhase(state: RoomState, ctx: ReducerCtx): ReduceResult {
+  const phase = state.phase;
+
+  switch (phase.name) {
+    case 'word-select': {
+      if (ctx.now < phase.endsAt) return { state, effects: [] };
+      const word = phase.choices[0];
+      if (word === undefined) return { state, effects: [] };
+      return startDrawing(state, phase.drawerId, word, ctx);
+    }
+
+    case 'drawing': {
+      if (ctx.now >= phase.endsAt) return endTurn(state, ctx);
+
+      const elapsed = ctx.now - phase.startedAt;
+      const due = phase.schedule
+        .filter((r) => r.atElapsedMs <= elapsed && !phase.revealed.includes(r.index))
+        .map((r) => r.index);
+
+      if (due.length === 0) return { state, effects: [] };
+
+      return {
+        state: { ...state, phase: { ...phase, revealed: [...phase.revealed, ...due] } },
+        effects: [{ type: 'BROADCAST_STATE' }],
+      };
+    }
+
+    case 'turn-end':
+      return ctx.now >= phase.endsAt ? advanceTurn(state, ctx) : { state, effects: [] };
+
+    case 'round-end':
+      return ctx.now >= phase.endsAt ? advanceRound(state, ctx) : { state, effects: [] };
+
+    default:
+      return { state, effects: [] };
+  }
+}
+
+function advanceTurn(state: RoomState, ctx: ReducerCtx): ReduceResult {
+  const nextIndex = state.turnIndex + 1;
+
+  if (nextIndex < state.turnOrder.length) {
+    return beginWordSelect({ ...state, turnIndex: nextIndex }, ctx);
+  }
+  return {
+    state: { ...state, phase: { name: 'round-end', endsAt: ctx.now + ROUND_END_MS } },
+    effects: [{ type: 'BROADCAST_STATE' }],
+  };
+}
+
+function advanceRound(state: RoomState, ctx: ReducerCtx): ReduceResult {
+  if (state.round >= state.settings.rounds) {
+    return {
+      state: { ...state, phase: { name: 'game-end' } },
+      effects: [{ type: 'BROADCAST_STATE' }],
+    };
+  }
+
+  const connected = state.players.filter((p) => p.connected).map((p) => p.id);
+  return beginWordSelect(
+    {
+      ...state,
+      round: state.round + 1,
+      turnIndex: 0,
+      turnOrder: shuffle(connected, ctx.random),
+    },
+    ctx,
+  );
 }
 
 export function shuffle<T>(items: readonly T[], random: () => number): T[] {

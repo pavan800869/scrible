@@ -8,3 +8,4 @@ export * from './hints.js';
 export * from './redact.js';
 export * from './events.js';
 export * from './reduce.js';
+export * from './messages.js';

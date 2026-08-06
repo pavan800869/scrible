@@ -6,13 +6,31 @@ A multiplayer drawing-and-guessing game with group voice chat. Draw a word, ever
 
 ```bash
 pnpm install
+cp .env.example .env        # paste LiveKit keys here if you want voice
 pnpm -C apps/server dev     # game server on :3000
 pnpm -C apps/web dev        # client on :5173, proxies /api and /ws
 ```
 
 Open http://localhost:5173, pick a name, start a game, and share the URL. The room code lives in the hash, so the invite link is just the page URL.
 
-Voice needs LiveKit credentials (below). Without them the game runs text-only and says so — nothing breaks.
+The server tells you on startup whether voice is wired up:
+
+```
+scrible listening on http://127.0.0.1:3000
+voice: off — set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env to enable it
+```
+
+Without credentials the game runs text-only and says so. Nothing breaks.
+
+`.env` is gitignored and never leaves your machine. Deployed instances read their host's secrets instead.
+
+## Chat
+
+Text chat runs in the lobby and in game, with live typing indicators in both.
+
+Typing is deliberately routed around the reducer — it is presence, not game state, so it is never persisted and never replayed to a reconnecting player. The message carries a single boolean and never the draft text, so a guess in progress cannot leak through it, and the server never echoes a typing flag back to its sender.
+
+During a turn, players who have already guessed are moved to a side channel visible only to each other and the drawer, so they cannot spoil it for anyone still guessing.
 
 ## Layout
 
@@ -55,6 +73,12 @@ pnpm typecheck
 ```
 
 ## Deploying
+
+Two blueprints are in the repo — use one, ignore the other.
+
+**Render** (`render.yaml`) — connect the repo at dashboard.render.com → New → Blueprint. It prompts for the three LiveKit secrets and redeploys on every push. Nearest region to India is Singapore. The free tier sleeps after 15 minutes idle, which drops any game in progress, so use Starter for a link you actually share.
+
+**Fly** (`fly.toml`) — lower latency from Mumbai, never sleeps:
 
 ```bash
 fly launch --no-deploy

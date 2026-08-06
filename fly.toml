@@ -1,5 +1,7 @@
 app = "scrible"
-primary_region = "iad"
+# Latency is felt directly here — strokes and voice both cross this hop.
+# bom = Mumbai, sin = Singapore, fra = Frankfurt, iad = Virginia, lhr = London.
+primary_region = "bom"
 
 [build]
 

@@ -69,6 +69,16 @@ export function reduce(state: RoomState, event: GameEvent, ctx: ReducerCtx): Red
       return guess(state, event, ctx);
     case 'TICK':
       return tick(state, ctx);
+    case 'PLAYER_LEFT':
+      return playerLeft(state, event, ctx);
+    case 'PLAYER_RECONNECTED':
+      return playerReconnected(state, event);
+    case 'KICK':
+      return kick(state, event, ctx);
+    case 'VOTEKICK':
+      return votekick(state, event, ctx);
+    case 'SETTINGS_CHANGED':
+      return settingsChanged(state, event);
     default:
       return { state, effects: [] };
   }
@@ -353,8 +363,150 @@ export function endTurn(state: RoomState, ctx: ReducerCtx, voided = false): Redu
   };
 }
 
-function tick(state: RoomState, ctx: ReducerCtx): ReduceResult {
-  return tickPhase(state, ctx);
+export const SEAT_HOLD_MS = 60_000;
+
+function tick(input: RoomState, ctx: ReducerCtx): ReduceResult {
+  const reaped: Effect[] = [];
+  let state = input;
+
+  const expired = state.players.filter(
+    (p) => !p.connected && p.seatExpiresAt !== null && ctx.now >= p.seatExpiresAt,
+  );
+
+  if (expired.length > 0) {
+    const ids = new Set(expired.map((p) => p.id));
+    state = {
+      ...state,
+      players: state.players.filter((p) => !ids.has(p.id)),
+      turnOrder: state.turnOrder.filter((id) => !ids.has(id)),
+    };
+    reaped.push({ type: 'BROADCAST_STATE' });
+  }
+
+  const result = tickPhase(state, ctx);
+  return { state: result.state, effects: [...reaped, ...result.effects] };
+}
+
+function playerLeft(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'PLAYER_LEFT' }>,
+  ctx: ReducerCtx,
+): ReduceResult {
+  const leaving = state.players.find((p) => p.id === event.playerId);
+  if (leaving === undefined) return { state, effects: [] };
+
+  let next: RoomState = {
+    ...state,
+    players: state.players.map((p) =>
+      p.id === event.playerId
+        ? { ...p, connected: false, seatExpiresAt: ctx.now + SEAT_HOLD_MS }
+        : p,
+    ),
+  };
+
+  if (state.hostId === event.playerId) {
+    const successor = next.players
+      .filter((p) => p.connected)
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+    next = { ...next, hostId: successor?.id ?? null };
+  }
+
+  const effects: Effect[] = [
+    { type: 'BROADCAST_STATE' },
+    { type: 'CHAT', scope: 'all', from: null, text: `${leaving.name} left`, kind: 'system' },
+  ];
+
+  // The drawer leaving voids the turn — nobody scores, including prior guessers.
+  if (next.phase.name === 'drawing' && next.phase.drawerId === event.playerId) {
+    const ended = endTurn(next, ctx, true);
+    return { state: ended.state, effects: [...effects, ...ended.effects] };
+  }
+
+  return { state: next, effects };
+}
+
+function playerReconnected(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'PLAYER_RECONNECTED' }>,
+): ReduceResult {
+  const seat = state.players.find((p) => p.id === event.playerId);
+  if (seat === undefined) return { state, effects: [] };
+
+  return {
+    state: {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === event.playerId ? { ...p, connected: true, seatExpiresAt: null } : p,
+      ),
+    },
+    effects: [{ type: 'BROADCAST_STATE' }],
+  };
+}
+
+function kick(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'KICK' }>,
+  ctx: ReducerCtx,
+): ReduceResult {
+  if (event.playerId !== state.hostId) return { state, effects: [] };
+  return removePlayer(state, event.targetId, event.ban, ctx);
+}
+
+function votekick(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'VOTEKICK' }>,
+  ctx: ReducerCtx,
+): ReduceResult {
+  // Simple majority of connected players excluding the target.
+  const eligible = state.players.filter((p) => p.connected && p.id !== event.targetId).length;
+  if (eligible < 2) return { state, effects: [] };
+  return removePlayer(state, event.targetId, false, ctx);
+}
+
+function removePlayer(
+  state: RoomState,
+  targetId: PlayerId,
+  ban: boolean,
+  ctx: ReducerCtx,
+): ReduceResult {
+  const target = state.players.find((p) => p.id === targetId);
+  if (target === undefined) return { state, effects: [] };
+
+  let next: RoomState = {
+    ...state,
+    players: state.players.filter((p) => p.id !== targetId),
+    turnOrder: state.turnOrder.filter((id) => id !== targetId),
+    bans: ban ? [...state.bans, { playerId: targetId, ip: target.ip }] : state.bans,
+  };
+
+  if (next.hostId === targetId) {
+    const successor = next.players
+      .filter((p) => p.connected)
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+    next = { ...next, hostId: successor?.id ?? null };
+  }
+
+  const effects: Effect[] = [
+    { type: 'REVOKE_VOICE', playerId: targetId },
+    { type: 'DISCONNECT', playerId: targetId },
+    { type: 'CHAT', scope: 'all', from: null, text: `${target.name} was removed`, kind: 'system' },
+    { type: 'BROADCAST_STATE' },
+  ];
+
+  if (next.phase.name === 'drawing' && next.phase.drawerId === targetId) {
+    const ended = endTurn(next, ctx, true);
+    return { state: ended.state, effects: [...effects, ...ended.effects] };
+  }
+  return { state: next, effects };
+}
+
+function settingsChanged(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'SETTINGS_CHANGED' }>,
+): ReduceResult {
+  if (event.playerId !== state.hostId) return { state, effects: [] };
+  if (state.phase.name !== 'lobby') return { state, effects: [] };
+  return { state: { ...state, settings: event.settings }, effects: [{ type: 'BROADCAST_STATE' }] };
 }
 
 function tickPhase(state: RoomState, ctx: ReducerCtx): ReduceResult {

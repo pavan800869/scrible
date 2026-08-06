@@ -39,4 +39,21 @@ describe('clientMessageSchema', () => {
   it('rejects a negative word choice index', () => {
     expect(clientMessageSchema.safeParse({ type: 'choose-word', index: -1 }).success).toBe(false);
   });
+
+  it('accepts a typing flag', () => {
+    expect(clientMessageSchema.safeParse({ type: 'typing', on: true }).success).toBe(true);
+    expect(clientMessageSchema.safeParse({ type: 'typing', on: false }).success).toBe(true);
+  });
+
+  it('rejects a typing message carrying text, so a draft can never leak', () => {
+    const result = clientMessageSchema.safeParse({ type: 'typing', on: true, text: 'apple' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(Object.keys(result.data)).toEqual(['type', 'on']);
+    }
+  });
+
+  it('rejects a typing message without the flag', () => {
+    expect(clientMessageSchema.safeParse({ type: 'typing' }).success).toBe(false);
+  });
 });

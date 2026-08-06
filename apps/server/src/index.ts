@@ -151,6 +151,11 @@ export class GameServer {
       return;
     }
 
+    if (message.type === 'typing') {
+      this.#relayTyping(connection, message.on);
+      return;
+    }
+
     const event = toEvent(message, connection.playerId);
     if (event === null) return;
     if (message.type === 'chat' && !limits.chat.tryConsume(Date.now())) return;
@@ -239,6 +244,27 @@ export class GameServer {
     for (const player of state.players) {
       const entry = this.#connections.get(player.id);
       if (entry !== undefined) send(entry.connection, { type: 'undo', strokeCount });
+    }
+  }
+
+  /**
+   * Fan out a typing flag to everyone else in the room.
+   *
+   * Kept off the reducer path: this is presence, not game state. It is never
+   * persisted, never replayed to a reconnecting player, and carries no text.
+   */
+  #relayTyping(connection: Connection, on: boolean): void {
+    if (connection.roomId === null) return;
+    const state = this.#store.get(connection.roomId);
+    if (state === undefined) return;
+    if (!state.players.some((p) => p.id === connection.playerId)) return;
+
+    for (const player of state.players) {
+      if (player.id === connection.playerId) continue;
+      const entry = this.#connections.get(player.id);
+      if (entry !== undefined) {
+        send(entry.connection, { type: 'typing', playerId: connection.playerId, on });
+      }
     }
   }
 

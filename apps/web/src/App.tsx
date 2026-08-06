@@ -37,6 +37,7 @@ export function App() {
       onStroke: (frame) => engine.commit(frame),
       onClear: () => engine.clear(),
       onUndo: (strokeCount) => engine.truncate(strokeCount),
+      onTyping: (playerId, on) => useGame.getState().setTyping(playerId, on),
       onStatus: (status, reason) => useGame.getState().setStatus(status, reason),
     });
   }
@@ -104,9 +105,13 @@ export function App() {
         view={view}
         selfId={state.playerId}
         voice={voice}
+        chat={state.chat}
+        typing={state.typing}
         onSettings={(settings: RoomSettings) => client.send({ type: 'settings', settings })}
         onStart={() => client.send({ type: 'start' })}
         onKick={(targetId) => client.send({ type: 'kick', targetId, ban: false })}
+        onChat={(text) => client.send({ type: 'chat', text })}
+        onTyping={(on) => client.send({ type: 'typing', on })}
       />
     );
   }
@@ -129,8 +134,10 @@ export function App() {
       engine={engine}
       chat={state.chat}
       voice={voice}
+      typing={state.typing}
       onFrame={(frame) => client.sendStroke(frame)}
       onChat={(text) => client.send({ type: 'chat', text })}
+      onTyping={(on) => client.send({ type: 'typing', on })}
       onPickWord={(index) => client.send({ type: 'choose-word', index })}
       onUndo={() => client.send({ type: 'undo' })}
       onClear={() => client.send({ type: 'clear' })}

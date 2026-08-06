@@ -173,6 +173,39 @@ describe('a full two-player game', () => {
     bo.close();
   }, 20_000);
 
+  it('relays typing to the other players but not back to the sender', async () => {
+    const roomId = await createRoom();
+
+    const ada = await Client.connect(baseUrl);
+    const bo = await Client.connect(baseUrl);
+    ada.send({ type: 'join', roomId, name: 'Ada', avatarSeed: 'a' });
+    bo.send({ type: 'join', roomId, name: 'Bo', avatarSeed: 'b' });
+
+    const welcome = await ada.waitFor(
+      (m): m is Extract<ServerMessage, { type: 'welcome' }> => m.type === 'welcome',
+    );
+    await bo.waitFor((m): m is StateMessage => isState(m) && m.view.players.length === 2);
+
+    ada.send({ type: 'typing', on: true });
+
+    const seen = await bo.waitFor(
+      (m): m is Extract<ServerMessage, { type: 'typing' }> => m.type === 'typing',
+    );
+    expect(seen.playerId).toBe(welcome.playerId);
+    expect(seen.on).toBe(true);
+
+    // The sender must not be told about their own typing.
+    expect(ada.received.some((m) => m.type === 'typing')).toBe(false);
+
+    ada.send({ type: 'typing', on: false });
+    await bo.waitFor(
+      (m): m is Extract<ServerMessage, { type: 'typing' }> => m.type === 'typing' && !m.on,
+    );
+
+    ada.close();
+    bo.close();
+  }, 20_000);
+
   it('rejects a join to a room that does not exist', async () => {
     const client = await Client.connect(baseUrl);
     client.send({ type: 'join', roomId: 'zzzzzz', name: 'Ghost', avatarSeed: 'g' });

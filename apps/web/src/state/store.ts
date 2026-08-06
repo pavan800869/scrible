@@ -14,11 +14,14 @@ export interface GameState {
   chat: ChatEntry[];
   name: string;
   avatarSeed: string;
+  /** Player ids currently composing a message. Ephemeral, never persisted. */
+  typing: string[];
 
   setStatus(status: ConnectionStatus | 'idle', reason?: string): void;
   setIdentity(playerId: string, roomId: string): void;
   setView(view: ClientRoomView): void;
   addChat(entry: Omit<ChatEntry, 'id'>): void;
+  setTyping(playerId: string, on: boolean): void;
   setProfile(name: string, avatarSeed: string): void;
   reset(): void;
 }
@@ -36,9 +39,20 @@ export const useGame = create<GameState>((set) => ({
   name: localStorage.getItem(NAME_KEY) ?? '',
   avatarSeed: localStorage.getItem(SEED_KEY) ?? freshSeed(),
 
+  typing: [],
+
   setStatus: (status, reason) => set({ status, errorReason: reason ?? null }),
   setIdentity: (playerId, roomId) => set({ playerId, roomId }),
   setView: (view) => set({ view }),
+
+  setTyping: (playerId, on) =>
+    set((prev) => ({
+      typing: on
+        ? prev.typing.includes(playerId)
+          ? prev.typing
+          : [...prev.typing, playerId]
+        : prev.typing.filter((id) => id !== playerId),
+    })),
 
   addChat: (entry) =>
     set((prev) => ({

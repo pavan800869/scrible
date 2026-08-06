@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { DRAW_TIME_STEPS, type ClientRoomView, type RoomSettings } from '@scrible/protocol';
 import { Roster } from '../components/Roster.js';
+import { Chat } from '../components/Chat.js';
 import { VoiceControls } from '../components/VoiceControls.js';
+import type { ChatEntry } from '../net/client.js';
 import type { VoiceApi } from '../voice/useVoice.js';
 
 interface LobbyProps {
   view: ClientRoomView;
   selfId: string | null;
   voice: VoiceApi;
+  chat: ChatEntry[];
+  typing: string[];
   onSettings: (settings: RoomSettings) => void;
   onStart: () => void;
   onKick: (playerId: string) => void;
+  onChat: (text: string) => void;
+  onTyping: (on: boolean) => void;
 }
 
 const MODES: { value: RoomSettings['mode']; label: string; hint: string }[] = [
@@ -19,7 +25,18 @@ const MODES: { value: RoomSettings['mode']; label: string; hint: string }[] = [
   { value: 'combination', label: 'Combination', hint: 'Two words at once. Good luck.' },
 ];
 
-export function Lobby({ view, selfId, voice, onSettings, onStart, onKick }: LobbyProps) {
+export function Lobby({
+  view,
+  selfId,
+  voice,
+  chat,
+  typing,
+  onSettings,
+  onStart,
+  onKick,
+  onChat,
+  onTyping,
+}: LobbyProps) {
   const isHost = view.hostId === selfId;
   const settings = view.settings;
   const connected = view.players.filter((p) => p.connected).length;
@@ -43,12 +60,25 @@ export function Lobby({ view, selfId, voice, onSettings, onStart, onKick }: Lobb
 
   return (
     <div className="lobby">
-      <Roster
-        view={view}
-        selfId={selfId}
-        speaking={voice.speaking}
-        onKick={isHost ? onKick : undefined}
-      />
+      <div className="lobby-side">
+        <Roster
+          view={view}
+          selfId={selfId}
+          speaking={voice.speaking}
+          onKick={isHost ? onKick : undefined}
+        />
+
+        <Chat
+          title="Room chat"
+          entries={chat}
+          disabled={false}
+          placeholder="Message the room"
+          onSend={onChat}
+          nameOf={(id) => view.players.find((p) => p.id === id)?.name ?? 'Someone'}
+          typing={typing}
+          onTyping={onTyping}
+        />
+      </div>
 
       <div className="lobby-main">
         <div className="lobby-head panel">

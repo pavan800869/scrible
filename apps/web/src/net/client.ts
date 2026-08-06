@@ -15,6 +15,7 @@ export interface ClientHandlers {
   onStroke(frame: Uint8Array): void;
   onClear(): void;
   onUndo(strokeCount: number): void;
+  onTyping(playerId: string, on: boolean): void;
   onStatus(status: ConnectionStatus, reason?: string): void;
 }
 
@@ -147,6 +148,9 @@ export class GameClient {
         break;
       case 'undo':
         this.#handlers.onUndo(message.strokeCount);
+        break;
+      case 'typing':
+        this.#handlers.onTyping(message.playerId, message.on);
         break;
       case 'error':
         this.#closedByUs = true;

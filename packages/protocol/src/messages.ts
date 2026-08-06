@@ -21,6 +21,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('clear') }),
   z.object({ type: z.literal('kick'), targetId: z.string(), ban: z.boolean() }),
   z.object({ type: z.literal('votekick'), targetId: z.string() }),
+  z.object({ type: z.literal('typing'), on: z.boolean() }),
   z.object({ type: z.literal('pong') }),
 ]);
 
@@ -37,6 +38,12 @@ export type ServerMessage =
       scope: 'all' | 'guessed';
     }
   | { type: 'private'; text: string; kind: 'close' | 'warning' }
+  /**
+   * Ephemeral presence. Deliberately routed around the reducer — it is not
+   * game state, must not be replayed on reconnect, and a dropped one is
+   * harmless. Carries no text, so it can never leak a guess in progress.
+   */
+  | { type: 'typing'; playerId: string; on: boolean }
   | { type: 'clear' }
   | { type: 'undo'; strokeCount: number }
   | { type: 'error'; reason: string }

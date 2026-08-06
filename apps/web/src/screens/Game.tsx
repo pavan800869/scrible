@@ -20,8 +20,10 @@ interface GameProps {
   engine: CanvasEngine;
   chat: ChatEntry[];
   voice: VoiceApi;
+  typing: string[];
   onFrame: (frame: Uint8Array) => void;
   onChat: (text: string) => void;
+  onTyping: (on: boolean) => void;
   onPickWord: (index: number) => void;
   onUndo: () => void;
   onClear: () => void;
@@ -189,6 +191,8 @@ export function Game(props: GameProps) {
           }
           onSend={props.onChat}
           nameOf={(id) => view.players.find((p) => p.id === id)?.name ?? 'Someone'}
+          typing={props.typing}
+          onTyping={props.onTyping}
         />
       </div>
     </div>

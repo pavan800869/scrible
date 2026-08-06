@@ -68,7 +68,7 @@ The LiveKit SDK is a lazy import — players who never turn on voice never downl
 ## Testing
 
 ```bash
-pnpm test        # 154 tests
+pnpm test        # 158 tests
 pnpm typecheck
 ```
 

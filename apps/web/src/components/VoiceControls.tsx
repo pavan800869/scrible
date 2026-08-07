@@ -1,3 +1,4 @@
+import { Icon } from './Icon.js';
 import type { VoiceApi } from '../voice/useVoice.js';
 
 const MESSAGE: Record<VoiceApi['status'], string> = {
@@ -37,9 +38,9 @@ export function VoiceControls({ voice }: { voice: VoiceApi }) {
         aria-label={voice.muted ? 'Unmute microphone' : 'Mute microphone'}
         title={voice.muted ? 'Muted — hold Space to talk' : 'Live — click to mute'}
       >
-        {voice.muted ? '🔇' : '🎙'}
+        <Icon name={voice.muted ? 'mic-off' : 'mic'} size={19} />
       </button>
-      <button className="btn-ghost" style={{ fontSize: 12 }} onClick={voice.leave}>
+      <button className="btn btn-ghost btn-small" onClick={voice.leave}>
         Leave
       </button>
     </div>

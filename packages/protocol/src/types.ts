@@ -61,6 +61,8 @@ export interface TurnWord {
   difficulty: Difficulty;
 }
 
+export type Reaction = 'like' | 'dislike';
+
 export type Phase =
   | { name: 'lobby' }
   | { name: 'word-select'; drawerId: PlayerId; choices: TurnWord[]; endsAt: number }
@@ -73,6 +75,8 @@ export type Phase =
       revealed: number[];
       schedule: { atElapsedMs: number; index: number }[];
       correct: { playerId: PlayerId; atMs: number; points: number }[];
+      /** One entry per voter, replaced when they change their mind. */
+      reactions: { playerId: PlayerId; kind: Reaction }[];
     }
   | { name: 'turn-end'; word: string; deltas: Record<PlayerId, number>; endsAt: number }
   | { name: 'round-end'; endsAt: number }
@@ -107,6 +111,11 @@ export interface ClientPhaseView {
   word?: string;
   deltas?: Record<PlayerId, number>;
   correctPlayerIds?: PlayerId[];
+  /** Live tallies during drawing. Who voted which way is never revealed. */
+  likes?: number;
+  dislikes?: number;
+  /** The viewer's own vote, so the button can show as pressed. */
+  myReaction?: Reaction | null;
 }
 
 export type GameMode = GameModeName;

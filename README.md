@@ -32,6 +32,16 @@ Typing is deliberately routed around the reducer — it is presence, not game st
 
 During a turn, players who have already guessed are moved to a side channel visible only to each other and the drawer, so they cannot spoil it for anyone still guessing.
 
+A guess within an edit distance of two of the answer comes back as a private "so close" line, visible only to the guesser. The near-miss itself is never broadcast, so being close costs you nothing and tells the room nothing.
+
+## Likes and dislikes
+
+While a drawing is live, everyone but the drawer can rate it. Each player holds one vote, pressing the same button again withdraws it, and the tally settles into the drawer's score at the end of the turn — 15 points a vote, clamped to +105 and −45.
+
+The clamp is deliberately lopsided: a room that loves your drawing can lift you further than a couple of griefers can drag you down. Applause only pays when somebody actually guessed, so a turn nobody solved still scores zero, and the drawer's award never goes negative.
+
+Only the tallies are broadcast. Who voted which way stays on the server, so a room cannot turn on whoever downvoted.
+
 ## Layout
 
 ```
@@ -41,7 +51,7 @@ apps/server         Fastify + ws. Authoritative. Owns all room state.
 apps/web            React + Vite. Canvas2D drawing, LiveKit voice.
 ```
 
-`packages/protocol` holds the entire game as `reduce(state, event, ctx) → { state, effects }`. It never touches the clock, the network, or `Math.random` — `ctx` injects `now` and `random`. That is why 102 of the tests run without a socket, a browser, or a timer.
+`packages/protocol` holds the entire game as `reduce(state, event, ctx) → { state, effects }`. It never touches the clock, the network, or `Math.random` — `ctx` injects `now` and `random`. That is why 132 of the tests run without a socket, a browser, or a timer.
 
 ## The one rule that matters
 
@@ -68,7 +78,7 @@ The LiveKit SDK is a lazy import — players who never turn on voice never downl
 ## Testing
 
 ```bash
-pnpm test        # 158 tests
+pnpm test        # 187 tests
 pnpm typecheck
 ```
 

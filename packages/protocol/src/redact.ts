@@ -63,6 +63,11 @@ function redactPhase(state: RoomState, viewerId: PlayerId): ClientPhaseView {
         endsAt: phase.endsAt,
         mask: buildMask(phase.word.text, new Set(phase.revealed), state.settings.mode),
         correctPlayerIds: phase.correct.map((c) => c.playerId),
+        // Tallies only. Who voted which way stays on the server, so a room
+        // cannot turn on whoever downvoted.
+        likes: phase.reactions.filter((r) => r.kind === 'like').length,
+        dislikes: phase.reactions.filter((r) => r.kind === 'dislike').length,
+        myReaction: phase.reactions.find((r) => r.playerId === viewerId)?.kind ?? null,
         ...(knowsWord ? { word: phase.word.text } : {}),
       };
     }

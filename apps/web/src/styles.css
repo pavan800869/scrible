@@ -195,6 +195,18 @@ button {
   color: var(--text);
 }
 
+.btn-small {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  border-radius: var(--r-sm);
+}
+
+/* Icons are stroked paths on a 24-unit grid; nothing here is an emoji. */
+.icon {
+  display: block;
+  flex-shrink: 0;
+}
+
 .field {
   width: 100%;
   padding: 12px 14px;
@@ -214,6 +226,34 @@ button {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--lift-2);
+}
+
+/* The default scrollbar is a bright slab in a dark room. Thin it and let it
+   take its colour from the surface it sits on. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--surface-3);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--line-strong);
+  background-clip: content-box;
 }
 
 /* ── home ────────────────────────────────────────────────────────────────── */
@@ -558,9 +598,12 @@ button {
 
 .player {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
+  /* Fixed row height: creatures differ in silhouette, and a roster that
+     reflows as players join reads as noise. */
+  min-height: 58px;
   padding: 8px;
   border-radius: var(--r-sm);
   transition: background 0.2s var(--ease), opacity 0.2s var(--ease);
@@ -691,10 +734,33 @@ button {
   font-weight: 550;
 }
 
+/* A near-miss is private feedback, so it is marked rather than just tinted —
+   it must never be mistaken for something the rest of the room can see. */
 .chat-close {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 9px;
   background: var(--glow-soft);
+  border: 1px solid rgba(255, 184, 107, 0.3);
   color: var(--glow);
-  font-weight: 550;
+}
+
+.chat-close b {
+  color: inherit;
+  font-weight: 700;
+}
+
+.chat-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--glow);
+  color: var(--on-glow);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .chat-warning {
@@ -788,6 +854,110 @@ button {
   background: currentColor;
 }
 
+/* ── reactions: the room's verdict, worth points ─────────────────────────── */
+
+.reactions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  animation: rise 0.32s var(--spring) both;
+}
+
+.reactions-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.reaction-pair {
+  display: flex;
+  gap: 6px;
+}
+
+.reaction {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  transition:
+    background 0.18s var(--ease),
+    border-color 0.18s var(--ease),
+    color 0.18s var(--ease),
+    transform 0.18s var(--spring);
+}
+
+.reaction:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.reaction:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Read-only for the drawer: still legible, just not pressable. */
+.reaction:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.reaction.is-like.is-active {
+  background: rgba(123, 216, 143, 0.16);
+  border-color: rgba(123, 216, 143, 0.5);
+  color: var(--good);
+}
+
+.reaction.is-dislike.is-active {
+  background: rgba(255, 107, 107, 0.14);
+  border-color: rgba(255, 107, 107, 0.45);
+  color: var(--alert);
+}
+
+.reaction-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.reaction-bonus {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  min-width: 62px;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.reaction-bonus small {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.reaction-bonus.is-neutral {
+  color: var(--text-faint);
+}
+
+.reaction-bonus.is-up {
+  color: var(--good);
+}
+
+.reaction-bonus.is-down {
+  color: var(--alert);
+}
+
 /* ── word picker ─────────────────────────────────────────────────────────── */
 
 .picker {
@@ -828,10 +998,33 @@ button {
   border-color: var(--glow);
 }
 
-.picker-stars {
-  font-size: 11px;
-  color: var(--glow);
-  letter-spacing: 0.2em;
+.picker-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.picker-rank i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  transition: background 0.2s var(--ease);
+}
+
+.picker-rank i.is-on {
+  background: var(--glow);
+}
+
+.picker-rank small {
+  margin-left: 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 /* ── lobby ───────────────────────────────────────────────────────────────── */
@@ -872,10 +1065,18 @@ button {
   align-content: start;
 }
 
+/* Three columns at most: five sliders strung across a wide panel are hard to
+   scan, and each one only needs enough width to be draggable. */
 .setting-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 14px;
+  gap: 14px 28px;
+  max-width: 780px;
+}
+
+.settings > .setting,
+.settings > div {
+  max-width: 780px;
 }
 
 .setting {
@@ -919,14 +1120,30 @@ button {
 .invite {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 9px;
+  padding: 10px 15px;
   border-radius: var(--r-md);
   background: var(--surface);
   border: 1px dashed var(--line-strong);
-  font-family: var(--font-mono);
   font-size: 13px;
+  font-weight: 550;
   color: var(--text-dim);
+  transition:
+    border-color 0.2s var(--ease),
+    color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.invite:hover {
+  border-color: var(--glow);
+  color: var(--text);
+}
+
+.invite.is-copied {
+  border-style: solid;
+  border-color: rgba(123, 216, 143, 0.5);
+  background: rgba(123, 216, 143, 0.1);
+  color: var(--good);
 }
 
 .room-code {
@@ -987,6 +1204,94 @@ button {
 
 .podium-row.is-first .podium-rank {
   color: var(--glow);
+}
+
+.podium-row.is-gone {
+  opacity: 0.5;
+}
+
+.podium-row .player-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.podium-row .player-score {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.podium-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+
+.podium-hint {
+  text-align: center;
+  margin: -12px 0 0;
+}
+
+.winner-portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 156px;
+  height: 156px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, var(--glow-soft), transparent 68%);
+}
+
+/* Off to the side, not on the head: several creatures already wear a topper
+   there, and two crowns stacked reads as a rendering fault. */
+.winner-crown {
+  position: absolute;
+  right: 8px;
+  bottom: 12px;
+  box-sizing: content-box;
+  padding: 7px;
+  border-radius: 50%;
+  background: var(--glow);
+  color: var(--on-glow);
+  box-shadow: var(--lift-2);
+  animation: pop 0.5s var(--spring) 0.25s both;
+}
+
+.winner-copy {
+  min-width: 0;
+}
+
+.winner-name {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.winner-name em {
+  font-style: normal;
+  color: var(--glow);
+}
+
+.winner-meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.winner-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-faint);
 }
 
 /* ── voice ───────────────────────────────────────────────────────────────── */
@@ -1162,11 +1467,15 @@ button {
 
 .crown {
   position: absolute;
-  top: -6px;
-  right: -4px;
-  font-size: 14px;
+  top: -7px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--surface);
   color: var(--glow);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--lift-1);
   animation: pop 0.4s var(--spring) both;
 }
 
@@ -1200,12 +1509,39 @@ button {
   color: var(--good);
 }
 
+.tag-you {
+  margin-left: 6px;
+  background: var(--surface-3);
+  color: var(--text-dim);
+  vertical-align: 1px;
+}
+
 .kick {
-  padding: 2px 7px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   color: var(--text-faint);
-  font-size: 15px;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  opacity: 0;
+  transition:
+    background 0.15s var(--ease),
+    color 0.15s var(--ease),
+    opacity 0.15s var(--ease);
+}
+
+/* Kept out of the way until the row is under the pointer — a remove control
+   next to every name reads as an invitation. Always reachable by keyboard. */
+.player:hover .kick,
+.kick:focus-visible {
+  opacity: 1;
+}
+
+/* No hover on touch, so never hide it there. */
+@media (hover: none) {
+  .kick {
+    opacity: 1;
+  }
 }
 
 .kick:hover {
@@ -1447,6 +1783,42 @@ input[type='checkbox'] {
 @media (max-width: 700px) {
   body {
     font-size: 14px;
+  }
+
+  .reactions {
+    gap: 10px;
+    padding: 8px 10px;
+  }
+
+  .reactions-label {
+    display: none;
+  }
+
+  .reaction-pair {
+    flex: 1;
+  }
+
+  .reaction {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .podium-card {
+    padding: 24px 20px;
+  }
+
+  .winner-stage {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  .winner-meta {
+    justify-content: center;
+  }
+
+  .podium-actions {
+    grid-template-columns: 1fr;
   }
 
   .stage {

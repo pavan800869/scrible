@@ -10,6 +10,20 @@ const GUESS_BASE = 100;
 const GUESS_TIME_BONUS = 300;
 export const DRAWER_SCORE_CAP = 350;
 
+export const REACTION_POINTS = 15;
+/**
+ * Deliberately asymmetric. A room that loves your drawing can lift you further
+ * than a couple of griefers can drag you down, so downvoting is a weak weapon.
+ */
+export const REACTION_MIN = -45;
+export const REACTION_MAX = 105;
+
+/** Net applause, in points. Clamped so a big room cannot swamp the base score. */
+export function reactionBonus(input: { likes: number; dislikes: number }): number {
+  const net = input.likes - input.dislikes;
+  return Math.max(REACTION_MIN, Math.min(REACTION_MAX, net * REACTION_POINTS));
+}
+
 export function guesserScore(input: {
   timeRemainingMs: number;
   drawTimeMs: number;

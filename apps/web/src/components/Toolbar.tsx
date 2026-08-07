@@ -1,4 +1,5 @@
 import { BRUSH_SIZES, PALETTE } from '../canvas/protocol.js';
+import { Icon } from './Icon.js';
 
 export type Tool = 'brush' | 'eraser' | 'fill';
 
@@ -39,7 +40,7 @@ export function Toolbar(props: ToolbarProps) {
             aria-pressed={props.tool === tool}
             title={`${LABEL[tool]} (${SHORTCUT[tool]})`}
           >
-            {ICON[tool]}
+            <Icon name={tool} />
           </button>
         ))}
       </div>
@@ -64,10 +65,10 @@ export function Toolbar(props: ToolbarProps) {
 
       <div className="tool-group">
         <button className="tool" onClick={props.onUndo} aria-label="Undo" title="Undo (U)">
-          ↺
+          <Icon name="undo" />
         </button>
         <button className="tool" onClick={props.onClear} aria-label="Clear canvas" title="Clear (C)">
-          ⌫
+          <Icon name="clear" />
         </button>
       </div>
     </div>
@@ -84,10 +85,4 @@ const SHORTCUT: Record<Tool, string> = {
   brush: 'B',
   eraser: 'E',
   fill: 'F',
-};
-
-const ICON: Record<Tool, string> = {
-  brush: '✎',
-  eraser: '◻',
-  fill: '◐',
 };

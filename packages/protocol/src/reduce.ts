@@ -4,6 +4,7 @@ import type {
   Phase,
   Player,
   PlayerId,
+  Reaction,
   RoomId,
   RoomSettings,
   RoomState,
@@ -13,7 +14,7 @@ import type { Difficulty } from './score.js';
 import { buildHintSchedule } from './hints.js';
 import { classifyGuess } from './guess.js';
 import { normalize } from './text.js';
-import { drawerScore, guesserScore } from './score.js';
+import { drawerScore, guesserScore, reactionBonus } from './score.js';
 
 export interface PickWordsFn {
   (input: {
@@ -67,6 +68,8 @@ export function reduce(state: RoomState, event: GameEvent, ctx: ReducerCtx): Red
       return wordChosen(state, event, ctx);
     case 'GUESS':
       return guess(state, event, ctx);
+    case 'REACT':
+      return react(state, event);
     case 'TICK':
       return tick(state, ctx);
     case 'PLAYER_LEFT':
@@ -126,7 +129,11 @@ function startGame(
   ctx: ReducerCtx,
 ): ReduceResult {
   const connected = state.players.filter((p) => p.connected);
-  if (state.phase.name !== 'lobby') return { state, effects: [] };
+  // "Play again" lands here too: the podium is the `game-end` phase, and it is
+  // the only other place a game may legally be (re)started from.
+  if (state.phase.name !== 'lobby' && state.phase.name !== 'game-end') {
+    return { state, effects: [] };
+  }
   if (event.playerId !== state.hostId) return { state, effects: [] };
   if (connected.length < 2) return { state, effects: [] };
 
@@ -142,7 +149,10 @@ function startGame(
     ),
   };
 
-  return beginWordSelect(reset, ctx);
+  const started = beginWordSelect(reset, ctx);
+
+  // Wipe whatever the last game left on the paper before anyone sees it.
+  return { state: started.state, effects: [{ type: 'CLEAR_CANVAS' }, ...started.effects] };
 }
 
 /** Shared by START_GAME and every subsequent turn advance. */
@@ -208,6 +218,7 @@ export function startDrawing(
       random: ctx.random,
     }),
     correct: [],
+    reactions: [],
   };
 
   return {
@@ -322,6 +333,36 @@ function guess(
   return { state: withScore, effects };
 }
 
+/**
+ * Vote on the drawing in progress.
+ *
+ * The drawer cannot vote for themselves, votes only count during a live turn,
+ * and each player holds at most one — sending the same kind twice withdraws it,
+ * so the button toggles.
+ */
+function react(
+  state: RoomState,
+  event: Extract<GameEvent, { type: 'REACT' }>,
+): ReduceResult {
+  const phase = state.phase;
+  if (phase.name !== 'drawing') return { state, effects: [] };
+  if (event.playerId === phase.drawerId) return { state, effects: [] };
+  if (!state.players.some((p) => p.id === event.playerId)) return { state, effects: [] };
+
+  const existing = phase.reactions.find((r) => r.playerId === event.playerId);
+  const without = phase.reactions.filter((r) => r.playerId !== event.playerId);
+
+  const withdrawing = event.kind === null || existing?.kind === event.kind;
+  const reactions = withdrawing
+    ? without
+    : [...without, { playerId: event.playerId, kind: event.kind as Reaction }];
+
+  return {
+    state: { ...state, phase: { ...phase, reactions } },
+    effects: [{ type: 'BROADCAST_STATE' }],
+  };
+}
+
 function nameOf(state: RoomState, playerId: PlayerId): string {
   return state.players.find((p) => p.id === playerId)?.name ?? 'someone';
 }
@@ -341,10 +382,22 @@ export function endTurn(state: RoomState, ctx: ReducerCtx, voided = false): Redu
   if (!voided) {
     for (const entry of phase.correct) deltas[entry.playerId] = entry.points;
 
-    const award = drawerScore({
+    const base = drawerScore({
       guesserScores: phase.correct.map((c) => c.points),
       otherPlayerCount,
     });
+
+    // Applause only counts when the drawing actually landed. Otherwise the
+    // existing rule stands: nobody guessed, nobody scores.
+    const applause =
+      base > 0
+        ? reactionBonus({
+            likes: phase.reactions.filter((r) => r.kind === 'like').length,
+            dislikes: phase.reactions.filter((r) => r.kind === 'dislike').length,
+          })
+        : 0;
+
+    const award = Math.max(0, base + applause);
     if (award > 0) {
       deltas[phase.drawerId] = award;
       players = players.map((p) =>

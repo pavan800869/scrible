@@ -24,6 +24,10 @@ function drawingState(): RoomState {
       revealed: [0],
       schedule: [],
       correct: [{ playerId: 'p2', atMs: 10_000, points: 300 }],
+      reactions: [
+        { playerId: 'p2', kind: 'like' },
+        { playerId: 'p3', kind: 'dislike' },
+      ],
     },
     usedWords: [],
     bans: [],

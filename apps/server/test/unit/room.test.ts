@@ -79,6 +79,20 @@ describe('RoomRuntime', () => {
     expect(toDrawer.some((m) => m.type === 'chat' && m.text === 'good one')).toBe(true);
   });
 
+  it('restarts from the podium and wipes the finished game off the canvas', () => {
+    // The podium is the `game-end` phase; "Play again" is a START_GAME from it.
+    const finished = store.get(runtime.id)!;
+    store.set({ ...finished, phase: { name: 'game-end' } });
+    runtime.strokes.append(new Uint8Array([9]));
+    transport.reset();
+
+    runtime.dispatch({ type: 'START_GAME', playerId: 'p1' }, 0);
+
+    expect(store.get(runtime.id)!.phase.name).toBe('word-select');
+    expect(runtime.strokes.log()).toEqual([]);
+    expect(transport.messagesTo('p2').some((m) => m.type === 'clear')).toBe(true);
+  });
+
   it('closes the socket of a kicked player', () => {
     runtime.dispatch({ type: 'KICK', playerId: 'p1', targetId: 'p2', ban: false }, 0);
     expect(transport.closed).toContain('p2');

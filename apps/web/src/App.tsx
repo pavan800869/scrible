@@ -142,6 +142,7 @@ export function App() {
       onUndo={() => client.send({ type: 'undo' })}
       onClear={() => client.send({ type: 'clear' })}
       onKick={(targetId) => client.send({ type: 'kick', targetId, ban: false })}
+      onReact={(kind) => client.send({ type: 'react', kind })}
     />
   );
 }

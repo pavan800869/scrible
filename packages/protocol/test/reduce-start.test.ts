@@ -69,6 +69,54 @@ describe('START_GAME', () => {
     const result = reduce(state, { type: 'START_GAME', playerId: 'p1' }, ctx);
     expect(result.state.phase.name).toBe('lobby');
   });
+
+  it('ignores a start once a game is already under way', () => {
+    const state = reduce(roomWithTwoPlayers(), { type: 'START_GAME', playerId: 'p1' }, ctx).state;
+    const again = reduce(state, { type: 'START_GAME', playerId: 'p1' }, ctx);
+    expect(again.state).toBe(state);
+    expect(again.effects).toEqual([]);
+  });
+});
+
+/** The podium's "Play again" is a START_GAME sent from the game-end phase. */
+describe('START_GAME from the podium', () => {
+  function finishedGame() {
+    const state = roomWithTwoPlayers();
+    return {
+      ...state,
+      round: DEFAULT_SETTINGS.rounds,
+      players: state.players.map((p, i) => ({ ...p, score: 100 * (i + 1) })),
+      usedWords: ['word0', 'word1'],
+      phase: { name: 'game-end' as const },
+    };
+  }
+
+  it('starts a fresh game', () => {
+    const result = reduce(finishedGame(), { type: 'START_GAME', playerId: 'p1' }, ctx);
+    expect(result.state.phase.name).toBe('word-select');
+    expect(result.state.round).toBe(1);
+    expect(result.state.turnIndex).toBe(0);
+  });
+
+  it('resets every score', () => {
+    const result = reduce(finishedGame(), { type: 'START_GAME', playerId: 'p1' }, ctx);
+    expect(result.state.players.map((p) => p.score)).toEqual([0, 0]);
+  });
+
+  it('frees the words the last game used', () => {
+    const result = reduce(finishedGame(), { type: 'START_GAME', playerId: 'p1' }, ctx);
+    expect(result.state.usedWords).toEqual([]);
+  });
+
+  it('wipes the last game’s drawing off the canvas', () => {
+    const result = reduce(finishedGame(), { type: 'START_GAME', playerId: 'p1' }, ctx);
+    expect(result.effects).toContainEqual({ type: 'CLEAR_CANVAS' });
+  });
+
+  it('still only listens to the host', () => {
+    const result = reduce(finishedGame(), { type: 'START_GAME', playerId: 'p2' }, ctx);
+    expect(result.state.phase.name).toBe('game-end');
+  });
 });
 
 describe('WORD_CHOSEN', () => {

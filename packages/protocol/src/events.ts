@@ -1,4 +1,4 @@
-import type { PlayerId, RoomSettings } from './types.js';
+import type { PlayerId, Reaction, RoomSettings } from './types.js';
 
 export type GameEvent =
   | { type: 'PLAYER_JOINED'; playerId: PlayerId; name: string; avatarSeed: string; ip: string }
@@ -8,6 +8,8 @@ export type GameEvent =
   | { type: 'START_GAME'; playerId: PlayerId }
   | { type: 'WORD_CHOSEN'; playerId: PlayerId; choiceIndex: number }
   | { type: 'GUESS'; playerId: PlayerId; text: string }
+  /** `kind: null` withdraws an existing vote. */
+  | { type: 'REACT'; playerId: PlayerId; kind: Reaction | null }
   | { type: 'KICK'; playerId: PlayerId; targetId: PlayerId; ban: boolean }
   | { type: 'VOTEKICK'; playerId: PlayerId; targetId: PlayerId }
   | { type: 'TICK' };

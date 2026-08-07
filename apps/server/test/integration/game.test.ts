@@ -206,6 +206,53 @@ describe('a full two-player game', () => {
     bo.close();
   }, 20_000);
 
+  it('tallies a reaction for everyone without revealing who voted', async () => {
+    const roomId = await createRoom();
+
+    const ada = await Client.connect(baseUrl);
+    const bo = await Client.connect(baseUrl);
+    ada.send({ type: 'join', roomId, name: 'Ada', avatarSeed: 'a' });
+    bo.send({ type: 'join', roomId, name: 'Bo', avatarSeed: 'b' });
+
+    await bo.waitFor(isState);
+    await ada.waitFor((m): m is StateMessage => isState(m) && m.view.players.length === 2);
+
+    ada.send({ type: 'start' });
+    const selecting = await ada.waitFor(
+      (m): m is StateMessage => isState(m) && m.view.phase.name === 'word-select',
+    );
+
+    const drawerId = selecting.view.phase.drawerId!;
+    const drawerName = selecting.view.players.find((p) => p.id === drawerId)!.name;
+    const drawer = drawerName === 'Ada' ? ada : bo;
+    const guesser = drawer === ada ? bo : ada;
+
+    await drawer.waitFor((m): m is StateMessage => isState(m) && m.view.phase.choices !== undefined);
+    drawer.send({ type: 'choose-word', index: 0 });
+    await guesser.waitFor((m): m is StateMessage => isState(m) && m.view.phase.name === 'drawing');
+
+    guesser.send({ type: 'react', kind: 'like' });
+
+    // The drawer sees the tally rise; the vote is theirs to feel, not to trace.
+    const seen = await drawer.waitFor(
+      (m): m is StateMessage => isState(m) && m.view.phase.likes === 1,
+    );
+    expect(seen.view.phase.dislikes).toBe(0);
+    expect(seen.view.phase.myReaction).toBeNull();
+
+    const voter = await guesser.waitFor(
+      (m): m is StateMessage => isState(m) && m.view.phase.myReaction === 'like',
+    );
+    expect(voter.view.phase.likes).toBe(1);
+
+    // Toggling the same vote takes it back.
+    guesser.send({ type: 'react', kind: 'like' });
+    await guesser.waitFor((m): m is StateMessage => isState(m) && m.view.phase.likes === 0);
+
+    ada.close();
+    bo.close();
+  }, 20_000);
+
   it('rejects a join to a room that does not exist', async () => {
     const client = await Client.connect(baseUrl);
     client.send({ type: 'join', roomId: 'zzzzzz', name: 'Ghost', avatarSeed: 'g' });

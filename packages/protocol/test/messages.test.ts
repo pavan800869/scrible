@@ -56,4 +56,21 @@ describe('clientMessageSchema', () => {
   it('rejects a typing message without the flag', () => {
     expect(clientMessageSchema.safeParse({ type: 'typing' }).success).toBe(false);
   });
+
+  it('accepts both reaction kinds', () => {
+    expect(clientMessageSchema.safeParse({ type: 'react', kind: 'like' }).success).toBe(true);
+    expect(clientMessageSchema.safeParse({ type: 'react', kind: 'dislike' }).success).toBe(true);
+  });
+
+  it('accepts a null reaction, which withdraws a vote', () => {
+    expect(clientMessageSchema.safeParse({ type: 'react', kind: null }).success).toBe(true);
+  });
+
+  it('rejects an invented reaction kind', () => {
+    expect(clientMessageSchema.safeParse({ type: 'react', kind: 'love' }).success).toBe(false);
+  });
+
+  it('rejects a reaction with no kind at all', () => {
+    expect(clientMessageSchema.safeParse({ type: 'react' }).success).toBe(false);
+  });
 });

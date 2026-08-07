@@ -133,12 +133,11 @@ export class GameClient {
         });
         break;
       case 'private':
+        // A close guess carries the guess itself; the chat line labels it.
+        // Anything else is already a finished sentence from the server.
         this.#handlers.onChat({
           from: null,
-          text:
-            message.kind === 'close'
-              ? `"${message.text}" is close.`
-              : message.text,
+          text: message.text,
           kind: message.kind,
           scope: 'private',
         });

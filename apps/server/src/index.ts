@@ -324,6 +324,8 @@ function toEvent(message: ClientMessage, playerId: PlayerId): GameEvent | null {
       return { type: 'WORD_CHOSEN', playerId, choiceIndex: message.index };
     case 'chat':
       return { type: 'GUESS', playerId, text: message.text };
+    case 'react':
+      return { type: 'REACT', playerId, kind: message.kind };
     case 'kick':
       return { type: 'KICK', playerId, targetId: message.targetId, ban: message.ban };
     case 'votekick':

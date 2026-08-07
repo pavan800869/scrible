@@ -17,6 +17,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('start') }),
   z.object({ type: z.literal('choose-word'), index: z.number().int().min(0).max(4) }),
   z.object({ type: z.literal('chat'), text: z.string().min(1).max(MAX_CHAT_LENGTH) }),
+  /** `kind: null` withdraws the sender's vote on the drawing in progress. */
+  z.object({ type: z.literal('react'), kind: z.enum(['like', 'dislike']).nullable() }),
   z.object({ type: z.literal('undo') }),
   z.object({ type: z.literal('clear') }),
   z.object({ type: z.literal('kick'), targetId: z.string(), ban: z.boolean() }),

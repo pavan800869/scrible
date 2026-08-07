@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ClientRoomView } from '@scrible/protocol';
+import { reactionBonus, type ClientRoomView, type Reaction } from '@scrible/protocol';
 import { DrawingCanvas } from '../canvas/DrawingCanvas.js';
 import type { CanvasEngine } from '../canvas/engine.js';
 import { Character } from '../components/Character.js';
 import { Chat } from '../components/Chat.js';
 import { Confetti } from '../components/Confetti.js';
+import { Reactions } from '../components/Reactions.js';
 import { Roster } from '../components/Roster.js';
 import { Timer } from '../components/Timer.js';
 import { Toolbar, type Tool } from '../components/Toolbar.js';
@@ -28,6 +29,7 @@ interface GameProps {
   onUndo: () => void;
   onClear: () => void;
   onKick: (playerId: string) => void;
+  onReact: (kind: Reaction) => void;
 }
 
 const GRAIN =
@@ -45,6 +47,8 @@ export function Game(props: GameProps) {
   const isDrawing = phase.name === 'drawing';
   const hasGuessed = (phase.correctPlayerIds ?? []).includes(selfId ?? '');
   const canDraw = isDrawer && isDrawing;
+  const likes = phase.likes ?? 0;
+  const dislikes = phase.dislikes ?? 0;
 
   // Confetti fires on the edge where you go from guessing to having it.
   const [burst, setBurst] = useState(0);
@@ -175,6 +179,17 @@ export function Game(props: GameProps) {
               onSize={setSizeIndex}
               onUndo={props.onUndo}
               onClear={props.onClear}
+            />
+          )}
+
+          {isDrawing && (
+            <Reactions
+              likes={likes}
+              dislikes={dislikes}
+              mine={phase.myReaction ?? null}
+              readOnly={isDrawer}
+              bonus={reactionBonus({ likes, dislikes })}
+              onReact={props.onReact}
             />
           )}
         </div>

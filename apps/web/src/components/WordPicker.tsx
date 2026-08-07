@@ -5,11 +5,8 @@ interface WordPickerProps {
   onPick: (index: number) => void;
 }
 
-const STARS: Record<string, string> = {
-  easy: '★',
-  medium: '★★',
-  hard: '★★★',
-};
+/** Difficulty as filled pips out of three, plus the word for screen readers. */
+const PIPS: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
 
 export function WordPicker({ choices, onPick }: WordPickerProps) {
   return (
@@ -27,7 +24,16 @@ export function WordPicker({ choices, onPick }: WordPickerProps) {
             onClick={() => onPick(index)}
           >
             {choice.text}
-            <span className="picker-stars">{STARS[choice.difficulty] ?? '★'}</span>
+            <span className="picker-rank" aria-label={`${choice.difficulty} word`}>
+              {[0, 1, 2].map((pip) => (
+                <i
+                  key={pip}
+                  className={pip < (PIPS[choice.difficulty] ?? 1) ? 'is-on' : ''}
+                  aria-hidden="true"
+                />
+              ))}
+              <small>{choice.difficulty}</small>
+            </span>
           </button>
         ))}
       </div>

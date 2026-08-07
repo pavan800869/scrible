@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DRAW_TIME_STEPS, type ClientRoomView, type RoomSettings } from '@scrible/protocol';
 import { Roster } from '../components/Roster.js';
 import { Chat } from '../components/Chat.js';
+import { Icon } from '../components/Icon.js';
 import { VoiceControls } from '../components/VoiceControls.js';
 import type { ChatEntry } from '../net/client.js';
 import type { VoiceApi } from '../voice/useVoice.js';
@@ -87,8 +88,12 @@ export function Lobby({
             <div className="room-code">{view.id}</div>
           </div>
 
-          <button className="invite" onClick={() => void copyInvite()}>
-            {copied ? '✓ Link copied' : 'Copy invite link'}
+          <button
+            className={`invite${copied ? ' is-copied' : ''}`}
+            onClick={() => void copyInvite()}
+          >
+            <Icon name={copied ? 'check' : 'link'} size={16} />
+            {copied ? 'Link copied' : 'Copy invite link'}
           </button>
 
           <VoiceControls voice={voice} />

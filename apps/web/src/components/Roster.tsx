@@ -1,5 +1,6 @@
 import type { ClientRoomView } from '@scrible/protocol';
 import { Character } from './Character.js';
+import { Icon } from './Icon.js';
 import { moodFor } from '../characters/mood.js';
 import { creatureFrom } from '../characters/traits.js';
 
@@ -47,7 +48,7 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
               />
               {isLeader && (
                 <span className="crown" title="Leading">
-                  ♛
+                  <Icon name="crown" size={13} label="Leading" />
                 </span>
               )}
             </div>
@@ -55,7 +56,7 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
             <div style={{ minWidth: 0 }}>
               <div className="player-name">
                 {player.name}
-                {player.id === selfId ? ' (you)' : ''}
+                {player.id === selfId && <span className="tag tag-you">You</span>}
               </div>
               <div className="player-meta">
                 <span className="species">{creature.species}</span>
@@ -79,7 +80,7 @@ export function Roster({ view, selfId, speaking, onKick }: RosterProps) {
                 aria-label={`Remove ${player.name}`}
                 title={`Remove ${player.name}`}
               >
-                ×
+                <Icon name="close" size={14} />
               </button>
             )}
           </div>

@@ -96,6 +96,17 @@ export function Chat(props: ChatProps) {
           const classes = ['chat-line', CLASS_BY_KIND[entry.kind]];
           if (entry.scope === 'guessed' && entry.kind === 'message') classes.push('chat-guessed');
 
+          if (entry.kind === 'close') {
+            return (
+              <div className="chat-line chat-close" key={entry.id}>
+                <span className="chat-badge">So close</span>
+                <span>
+                  <b>{entry.text}</b> is nearly it — keep going.
+                </span>
+              </div>
+            );
+          }
+
           return (
             <div className={classes.filter(Boolean).join(' ')} key={entry.id}>
               {entry.from !== null && <b>{nameOf(entry.from)}: </b>}

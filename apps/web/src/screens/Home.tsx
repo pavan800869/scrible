@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Character } from '../components/Character.js';
+import { Icon } from '../components/Icon.js';
 import { CREATURE_COUNT, creatureFrom, type Mood } from '../characters/traits.js';
 import { freshSeed } from '../state/store.js';
 
@@ -81,7 +82,8 @@ export function Home({ name, avatarSeed, error, onProfile, onJoin, onCreate }: H
               onClick={() => onProfile(trimmed, freshSeed())}
               title={`${CREATURE_COUNT.toLocaleString()} possible creatures`}
             >
-              ⟳ New creature
+              <Icon name="shuffle" size={15} />
+              New creature
             </button>
           </div>
         </div>
